@@ -240,6 +240,7 @@ export const TransitionSpring = React.createClass({
       // PropTypes.array,
     ]),
     children: PropTypes.func.isRequired,
+    currVelocity: PropTypes.func,
   },
 
   getDefaultProps() {
@@ -254,9 +255,11 @@ export const TransitionSpring = React.createClass({
     if (typeof endValue === 'function') {
       endValue = endValue();
     }
+
     return {
       currValue: endValue,
       currVelocity: mapTree(zero, endValue),
+      dirty: false,
     };
   },
 
@@ -264,7 +267,14 @@ export const TransitionSpring = React.createClass({
     this.startAnimating();
   },
 
-  componentWillReceiveProps() {
+  componentWillReceiveProps({currVelocity: currVelocityFunc}) {
+    const {currVelocity} = this.state;
+
+    if (currVelocityFunc) {
+      if (currVelocityFunc) this.currVelocity = currVelocityFunc(currVelocity);
+
+      this.dirty = true;
+    }
     this.startAnimating();
   },
 
@@ -288,6 +298,10 @@ export const TransitionSpring = React.createClass({
     let {currValue, currVelocity} = state;
     let {endValue} = this.props;
     const {willEnter, willLeave} = this.props;
+
+    if (this.dirty) {
+      currVelocity = this.currVelocity;
+    }
 
     if (typeof endValue === 'function') {
       endValue = endValue(currValue);
@@ -349,12 +363,18 @@ export const TransitionSpring = React.createClass({
     }
 
     const newCurrValue = updateCurrValue(timeStep, currValue, currVelocity, mergedValue);
-    const newCurrVelocity = updateCurrVelocity(timeStep, currValue, currVelocity, mergedValue);
+    let newCurrVelocity = updateCurrVelocity(timeStep, currValue, currVelocity, mergedValue);
 
     if (noVelocity(currVelocity) && noVelocity(newCurrVelocity)) {
       this.unsubscribeAnimation();
       this.unsubscribeAnimation = undefined;
     }
+
+    // Mutation starts bellow
+    // ------------------------------------------------------------------------
+    this.dirty = false;// DIRTY MUTATION THAT I HATE
+    // ------------------------------------------------------------------------
+    // Mutation ends above
 
     return {
       currValue: newCurrValue,
@@ -366,6 +386,7 @@ export const TransitionSpring = React.createClass({
     this.setState({
       currValue: interpolateValue(alpha, nextState.currValue, prevState.currValue),
       currVelocity: nextState.currVelocity,
+      dirty: nextState.dirty,
     });
   },
 

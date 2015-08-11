@@ -1,5 +1,5 @@
 import React from 'react';
-import {Spring} from '../../src/Spring';
+import {Spring, val} from '../../src/Spring';
 
 const Demo = React.createClass({
   getInitialState() {
@@ -18,24 +18,27 @@ const Demo = React.createClass({
   render() {
     return (
       <div>
-        <button
-          onMouseDown={this.handleMouseDown}
-          onTouchStart={this.handleTouchStart}>
+        <button onMouseDown={this.handleMouseDown} onTouchStart={this.handleTouchStart}>
           Toggle
         </button>
 
-        <Spring endValue={this.state.open ? 400 : 0}>
-          {val =>
-            // children is a callback which should accept the current value of
-            // `endValue`
-            <div className="demo0">
-              <div className="demo0-block" style={{
-                WebkitTransform: `translate3d(${val}px, 0, 0)`,
-                transform: `translate3d(${val}px, 0, 0)`,
-              }} />
-            </div>
-          }
-        </Spring>
+        <div className="demo0">
+          <Spring
+            className="demo0-block"
+            to={{
+              // transform: {
+              //   translate3d: [this.state.open ? 400 : 0, 0, 0],
+              // },
+              left: this.state.open ? 50 : 350,
+              position: 'absolute',
+            }}>asd</Spring>
+          <Spring
+            className="demo0-block"
+            to={{
+              left: val(this.state.open ? 400 : 0),
+              position: 'absolute',
+            }}>asd2</Spring>
+        </div>
       </div>
     );
   },

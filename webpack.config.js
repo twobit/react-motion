@@ -14,7 +14,7 @@ var entry = {
   // demo2: './demos/demo2/index.jsx',
   // demo3: './demos/demo3/index.jsx',
   // demo4: './demos/demo4/index.jsx',
-  // demo5: './demos/demo5/index.jsx',
+  demo5: './demos/demo5/index.jsx',
   // demo6: './demos/demo6/index.jsx',
   // demo7: './demos/demo7/index.jsx',
   // demo8: './demos/demo8/index.jsx',

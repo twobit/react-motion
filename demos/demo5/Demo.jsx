@@ -1,5 +1,5 @@
 import React from 'react';
-import {Spring} from '../../src/Spring';
+import {Spring, val, stop} from '../../src/Spring';
 import range from 'lodash.range';
 
 const gridWidth = 150;
@@ -25,11 +25,12 @@ const Demo = React.createClass({
     window.addEventListener('touchend', this.handleMouseUp);
   },
 
-  handleTouchStart(pos, press, e) {
-    this.handleMouseDown(pos, press, e.touches[0]);
+  handleTouchStart(pos, e, _, current) {
+    this.handleMouseDown(pos, e.touches[0], _, current);
   },
 
-  handleMouseDown(pos, [pressX, pressY], {pageX, pageY}) {
+  handleMouseDown(pos, {pageX, pageY}, _, {currValues}) {
+    const [pressX, pressY] = currValues.transform.translate3d;
     this.setState({
       delta: [pageX - pressX, pageY - pressY],
       mouse: [pressX, pressY],
@@ -95,6 +96,21 @@ const Demo = React.createClass({
             };
             const stiffness = s0 + i * 30;
             const damping = d0 + j * 2;
+
+            let thing;
+            if (dragged === 'stiffness') {
+              thing = i < num ? <div className="demo5-minus">-{(num - i) * 30}</div>
+                : i > num ? <div className="demo5-plus">+{(i - num) * 30}</div>
+                : <div className="demo5-plus">0</div>;
+            } else {
+              thing = j < num ? <div className="demo5-minus">-{(num - j) * 2}</div>
+                : j > num ? <div className="demo5-plus">+{(j - num) * 2}</div>
+                : <div className="demo5-plus">0</div>;
+            }
+            const active = lastPressed[0] === i && lastPressed[1] === j
+              ? 'demo5-ball-active'
+              : '';
+
             return (
               <div style={style} className="demo5-cell">
                 <input
@@ -111,47 +127,28 @@ const Demo = React.createClass({
                   value={damping}
                   onMouseDown={this.handleMouseDownInput.bind(null, 'damping', j)}
                   onChange={this.handleChange.bind(null, 'damping', j)} />
-                <Spring endValue={() => {
-                  if (isPressed) {
-                    return {val: mouse, config: []};
+                <Spring
+                  to={isPressed
+                    ? {transform: {translate3d: [
+                        stop(mouse[0]),
+                        stop(mouse[1]),
+                        0,
+                      ]}}
+                    : {transform: {translate3d: [
+                        val(gridWidth / 2 - 25, stiffness, damping),
+                        val(gridHeight / 2 - 25, stiffness, damping),
+                        0,
+                      ]}}
                   }
-                  return {
-                    val: [gridWidth / 2 - 25, gridHeight / 2 - 25],
-                    config: [stiffness, damping],
-                  };
-                }}>
-                  {({val: [x, y]}) => {
-                    let thing;
-                    if (dragged === 'stiffness') {
-                      thing = i < num ? <div className="demo5-minus">-{(num - i) * 30}</div>
-                        : i > num ? <div className="demo5-plus">+{(i - num) * 30}</div>
-                        : <div className="demo5-plus">0</div>;
-                    } else {
-                      thing = j < num ? <div className="demo5-minus">-{(num - j) * 2}</div>
-                        : j > num ? <div className="demo5-plus">+{(j - num) * 2}</div>
-                        : <div className="demo5-plus">0</div>;
-                    }
-                    const active = lastPressed[0] === i && lastPressed[1] === j
-                      ? 'demo5-ball-active'
-                      : '';
-                    return (
-                      <div
-                        style={{
-                          transform: `translate3d(${x}px, ${y}px, 0)`,
-                          WebkitTransform: `translate3d(${x}px, ${y}px, 0)`,
-                        }}
-                        className={'demo5-ball ' + active}
-                        onMouseDown={this.handleMouseDown.bind(null, [i, j], [x, y])}
-                        onTouchStart={this.handleTouchStart.bind(null, [i, j], [x, y])}>
-                        <div className="demo5-preset">
-                          {stiffness}{dragged === 'stiffness' && thing}
-                        </div>
-                        <div className="demo5-preset">
-                          {damping}{dragged === 'damping' && thing}
-                        </div>
-                      </div>
-                    );
-                  }}
+                  onMouseDown={this.handleMouseDown.bind(null, [i, j])}
+                  onTouchStart={this.handleTouchStart.bind(null, [i, j])}
+                  className={'demo5-ball ' + active}>
+                    <div className="demo5-preset">
+                      {stiffness}{dragged === 'stiffness' && thing}
+                    </div>
+                    <div className="demo5-preset">
+                      {damping}{dragged === 'damping' && thing}
+                    </div>
                 </Spring>
               </div>
             );

@@ -45,14 +45,18 @@ const methods = {
       nextCurrVelocity[prop] = [];
       for (let i = 0; i < 3; i++) {
         const _dest = arr[i]._isConfig ? arr[i] : val(arr[i]);
-        [nextCurrValue[prop][i], nextCurrVelocity[prop][i]] = stepper(
-          1 / 60,
-          currValue[prop][i],
-          currVelocity[prop][i],
-          _dest.val,
-          _dest.k,
-          _dest.b,
-        );
+        if (_dest._stop) {
+          [nextCurrValue[prop][i], nextCurrVelocity[prop][i]] = [_dest.val, 0];
+        } else {
+          [nextCurrValue[prop][i], nextCurrVelocity[prop][i]] = stepper(
+            1 / 60,
+            currValue[prop][i],
+            currVelocity[prop][i],
+            _dest.val,
+            _dest.k,
+            _dest.b,
+          );
+        }
       }
       stringed += `${prop}(${nextCurrValue[prop].join('px, ')}px)`;
     });
@@ -63,8 +67,36 @@ const methods = {
   },
 };
 
+const specialInitVelocity = {
+  transform(value) {
+    return mapObj(value, (key, value2) => {
+      // assumes value2 already a stripped value. But either case, this maps
+      // anything to 0 anyway
+      return value2.map(zero);
+    });
+  },
+};
+
+const specialStrip = {
+  transform(value) {
+    return mapObj(value, (key, value2) => {
+      return value2.map(o => {
+        if (o._isConfig) {
+          return o.val;
+        }
+        return o;
+      });
+    });
+  },
+};
+
 function stripWrappers(to) {
-  return mapObj(to, (_, x) => x._isConfig ? x.val : x);
+  return mapObj(to, (key, value) => {
+    if (specialProps[key]) {
+      return specialStrip[key](value);
+    }
+    return value._isConfig ? value.val : value;
+  });
 }
 
 export function val(x, k = presets.noWobble[0], b = presets.noWobble[1]) {
@@ -73,18 +105,16 @@ export function val(x, k = presets.noWobble[0], b = presets.noWobble[1]) {
     k,
     b,
     _isConfig: true,
-    // _currVelocity: ...,
-    // _currValue: ...,
   };
 }
 
-const specialInit = {
-  transform(value) {
-    return mapObj(value, (key, value2) => {
-      return value2.map(zero);
-    });
-  },
-};
+export function stop(x) {
+  return {
+    val: x,
+    _stop: true,
+    _isConfig: true,
+  };
+}
 
 export const Spring = React.createClass({
   propTypes: {
@@ -94,15 +124,16 @@ export const Spring = React.createClass({
   },
 
   _rafId: null,
-  currValues: null,
-  currVelocities: null,
+
+  curr: null,
 
   componentDidMount() {
     const {to} = this.props;
-    this.currValues = stripWrappers(to);
-    this.currVelocities = mapObj(this.currValues, (key, value) => {
+    this.curr = {};
+    this.curr.currValues = stripWrappers(to);
+    this.curr.currVelocities = mapObj(this.curr.currValues, (key, value) => {
       if (specialProps[key]) {
-        return specialInit[key](value);
+        return specialInitVelocity[key](value);
       }
       return 0;
     });
@@ -117,7 +148,7 @@ export const Spring = React.createClass({
   startRaf() {
     this._rafId = requestAnimationFrame(() => {
       const {to} = this.props;
-      const {currValues, currVelocities} = this;
+      const {currValues, currVelocities} = this.curr;
       const node = React.findDOMNode(this.refs.comp);
       forEachObj(to, (key, dest) => {
         if (!methods[key]) {
@@ -138,28 +169,37 @@ export const Spring = React.createClass({
         } else {
           const _dest = dest._isConfig ? dest : val(dest);
 
-          [nextCurrValue, nextCurrVelocity] = stepper(
-            1 / 60,
-            currValue,
-            currVelocity,
-            _dest.val,
-            _dest.k,
-            _dest.b,
-          );
+          if (_dest._stop) {
+            [nextCurrValue, nextCurrVelocity] = [_dest.val, 0];
+          } else {
+            [nextCurrValue, nextCurrVelocity] = stepper(
+              1 / 60,
+              currValue,
+              currVelocity,
+              _dest.val,
+              _dest.k,
+              _dest.b,
+            );
+          }
+
           methods[key](node, nextCurrValue);
         }
 
-        this.currValues[key] = nextCurrValue;
-        this.currVelocities[key] = nextCurrVelocity;
+        this.curr.currValues[key] = nextCurrValue;
+        this.curr.currVelocities[key] = nextCurrVelocity;
       });
       this.startRaf();
     });
   },
 
   render() {
-    const {className, children} = this.props;
+    const {to, onMouseDown, onTouchStart, ...rest} = this.props;
     return (
-      <div ref="comp" className={className}>{children}</div>
+      <div
+        ref="comp"
+        onMouseDown={(...args) => onMouseDown && onMouseDown(...args, this.curr)}
+        onTouchStart={(...args) => onTouchStart && onTouchStart(...args, this.curr)}
+        {...rest} />
     );
   },
 });

@@ -14,6 +14,10 @@ function forEachObj(o, f) {
   Object.keys(o).forEach(key => f(key, o[key]));
 }
 
+const specialProps = {
+  transform: true,
+};
+
 const methods = {
   top(node, x) {
     node.style.top = x + 'px';
@@ -26,6 +30,36 @@ const methods = {
   },
   width(node, x) {
     node.style.width = x + 'px';
+  },
+  transform(node, dest, currValue, currVelocity) {
+    if (typeof dest !== 'object') {
+      throw new Error('asdf');
+    }
+
+    let nextCurrValue = {};
+    let nextCurrVelocity = {};
+    let stringed = '';
+    forEachObj(dest, (prop, arr) => {
+      // assume it's an array of 3 items (e.g. translate3d) for now
+      nextCurrValue[prop] = [];
+      nextCurrVelocity[prop] = [];
+      for (let i = 0; i < 3; i++) {
+        const _dest = arr[i]._isConfig ? arr[i] : val(arr[i]);
+        [nextCurrValue[prop][i], nextCurrVelocity[prop][i]] = stepper(
+          1 / 60,
+          currValue[prop][i],
+          currVelocity[prop][i],
+          _dest.val,
+          _dest.k,
+          _dest.b,
+        );
+      }
+      stringed += `${prop}(${nextCurrValue[prop].join('px, ')}px)`;
+    });
+
+    node.style.transform = stringed;
+    node.style.webkitTransform = stringed;
+    return [nextCurrValue, nextCurrVelocity];
   },
 };
 
@@ -44,6 +78,14 @@ export function val(x, k = presets.noWobble[0], b = presets.noWobble[1]) {
   };
 }
 
+const specialInit = {
+  transform(value) {
+    return mapObj(value, (key, value2) => {
+      return value2.map(zero);
+    });
+  },
+};
+
 export const Spring = React.createClass({
   propTypes: {
     to: PropTypes.object.isRequired,
@@ -58,7 +100,12 @@ export const Spring = React.createClass({
   componentDidMount() {
     const {to} = this.props;
     this.currValues = stripWrappers(to);
-    this.currVelocities = mapObj(this.currValues, zero);
+    this.currVelocities = mapObj(this.currValues, (key, value) => {
+      if (specialProps[key]) {
+        return specialInit[key](value);
+      }
+      return 0;
+    });
     this.startRaf();
   },
 
@@ -77,20 +124,30 @@ export const Spring = React.createClass({
           node.style[key] = dest;
           return;
         }
-        const _dest = dest._isConfig ? dest : val(dest);
+
+        let nextCurrValue;
+        let nextCurrVelocity;
 
         const currValue = currValues[key];
         const currVelocity = currVelocities[key];
 
-        const [nextCurrValue, nextCurrVelocity] = stepper(
-          1 / 60,
-          currValue,
-          currVelocity,
-          _dest.val,
-          _dest.k,
-          _dest.b,
-        );
-        methods[key](node, nextCurrValue);
+        if (specialProps[key]) {
+          [nextCurrValue, nextCurrVelocity] = methods[key](
+            node, dest, currValue, currVelocity
+          );
+        } else {
+          const _dest = dest._isConfig ? dest : val(dest);
+
+          [nextCurrValue, nextCurrVelocity] = stepper(
+            1 / 60,
+            currValue,
+            currVelocity,
+            _dest.val,
+            _dest.k,
+            _dest.b,
+          );
+          methods[key](node, nextCurrValue);
+        }
 
         this.currValues[key] = nextCurrValue;
         this.currVelocities[key] = nextCurrVelocity;

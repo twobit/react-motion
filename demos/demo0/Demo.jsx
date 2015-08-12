@@ -26,18 +26,23 @@ const Demo = React.createClass({
           <Spring
             className="demo0-block"
             to={{
-              // transform: {
-              //   translate3d: [this.state.open ? 400 : 0, 0, 0],
-              // },
               left: this.state.open ? 50 : 350,
               position: 'absolute',
             }}>asd</Spring>
           <Spring
             className="demo0-block"
             to={{
-              left: val(this.state.open ? 400 : 0),
+              transform: {
+                translate3d: [this.state.open ? -50 : 300, 0, 0],
+              },
               position: 'absolute',
             }}>asd2</Spring>
+          <Spring
+            className="demo0-block"
+            to={{
+              left: val(this.state.open ? 400 : 0),
+              position: 'absolute',
+            }}>asd3</Spring>
         </div>
       </div>
     );

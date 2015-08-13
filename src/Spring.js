@@ -126,6 +126,7 @@ export const Spring = React.createClass({
   _rafId: null,
 
   curr: null,
+  node: null,
 
   componentDidMount() {
     const {to} = this.props;
@@ -137,6 +138,7 @@ export const Spring = React.createClass({
       }
       return 0;
     });
+    this.node = React.findDOMNode(this.refs.comp);
     this.startRaf();
   },
 
@@ -145,49 +147,56 @@ export const Spring = React.createClass({
     this._rafId = null;
   },
 
+  step({to}) {
+    const {currValues, currVelocities} = this.curr;
+    const node = this.node;
+    forEachObj(to, (key, dest) => {
+      if (!methods[key]) {
+        node.style[key] = dest;
+        return;
+      }
+
+      let nextCurrValue;
+      let nextCurrVelocity;
+
+      const currValue = currValues[key];
+      const currVelocity = currVelocities[key];
+
+      if (specialProps[key]) {
+        [nextCurrValue, nextCurrVelocity] = methods[key](
+          node, dest, currValue, currVelocity
+        );
+      } else {
+        const _dest = dest._isConfig ? dest : val(dest);
+
+        if (_dest._stop) {
+          [nextCurrValue, nextCurrVelocity] = [_dest.val, 0];
+        } else {
+          [nextCurrValue, nextCurrVelocity] = stepper(
+            1 / 60,
+            currValue,
+            currVelocity,
+            _dest.val,
+            _dest.k,
+            _dest.b,
+          );
+        }
+
+        methods[key](node, nextCurrValue);
+      }
+
+      this.curr.currValues[key] = nextCurrValue;
+      this.curr.currVelocities[key] = nextCurrVelocity;
+    });
+  },
+
+  componentWillUpdate(nextProps) {
+    this.step(nextProps);
+  },
+
   startRaf() {
     this._rafId = requestAnimationFrame(() => {
-      const {to} = this.props;
-      const {currValues, currVelocities} = this.curr;
-      const node = React.findDOMNode(this.refs.comp);
-      forEachObj(to, (key, dest) => {
-        if (!methods[key]) {
-          node.style[key] = dest;
-          return;
-        }
-
-        let nextCurrValue;
-        let nextCurrVelocity;
-
-        const currValue = currValues[key];
-        const currVelocity = currVelocities[key];
-
-        if (specialProps[key]) {
-          [nextCurrValue, nextCurrVelocity] = methods[key](
-            node, dest, currValue, currVelocity
-          );
-        } else {
-          const _dest = dest._isConfig ? dest : val(dest);
-
-          if (_dest._stop) {
-            [nextCurrValue, nextCurrVelocity] = [_dest.val, 0];
-          } else {
-            [nextCurrValue, nextCurrVelocity] = stepper(
-              1 / 60,
-              currValue,
-              currVelocity,
-              _dest.val,
-              _dest.k,
-              _dest.b,
-            );
-          }
-
-          methods[key](node, nextCurrValue);
-        }
-
-        this.curr.currValues[key] = nextCurrValue;
-        this.curr.currVelocities[key] = nextCurrVelocity;
-      });
+      this.step(this.props);
       this.startRaf();
     });
   },

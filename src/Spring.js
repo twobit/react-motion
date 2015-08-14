@@ -5,7 +5,17 @@ import presets from './presets';
 
 function mapObj(o, f) {
   return Object.keys(o).reduce((acc, key) => {
-    acc[key] = f(key, o[key]);
+    acc[key] = f(o[key], key);
+    return acc;
+  }, {});
+}
+
+function map(coll, f) {
+  if (Array.isArray(coll)) {
+    return coll.map(f);
+  }
+  return Object.keys(coll).reduce((acc, key) => {
+    acc[key] = f(coll[key], key);
     return acc;
   }, {});
 }
@@ -31,14 +41,30 @@ const methods = {
   width(node, x) {
     node.style.width = x + 'px';
   },
-  transform(node, dest, currValue, currVelocity) {
+  transform(node, x) {
+    if (typeof x !== 'object') {
+      throw new Error('asdf');
+    }
+
+    let stringed = '';
+    forEachObj(x, (prop, arr) => {
+      // assume it's an array of 3 items (e.g. translate3d) for now
+      stringed += `${prop}(${arr.join('px, ')}px)`;
+    });
+
+    node.style.transform = stringed;
+    node.style.webkitTransform = stringed;
+  },
+};
+
+const specialStep = {
+  transform(dest, currValue, currVelocity) {
     if (typeof dest !== 'object') {
       throw new Error('asdf');
     }
 
     let nextCurrValue = {};
     let nextCurrVelocity = {};
-    let stringed = '';
     forEachObj(dest, (prop, arr) => {
       // assume it's an array of 3 items (e.g. translate3d) for now
       nextCurrValue[prop] = [];
@@ -58,29 +84,26 @@ const methods = {
           );
         }
       }
-      stringed += `${prop}(${nextCurrValue[prop].join('px, ')}px)`;
     });
 
-    node.style.transform = stringed;
-    node.style.webkitTransform = stringed;
     return [nextCurrValue, nextCurrVelocity];
   },
 };
 
 const specialInitVelocity = {
   transform(value) {
-    return mapObj(value, (key, value2) => {
-      // assumes value2 already a stripped value. But either case, this maps
+    return mapObj(value, _value => {
+      // assumes _value already a stripped value. But either case, this maps
       // anything to 0 anyway
-      return value2.map(zero);
+      return _value.map(zero);
     });
   },
 };
 
 const specialStrip = {
   transform(value) {
-    return mapObj(value, (key, value2) => {
-      return value2.map(o => {
+    return mapObj(value, _value => {
+      return _value.map(o => {
         if (o._isConfig) {
           return o.val;
         }
@@ -91,7 +114,7 @@ const specialStrip = {
 };
 
 function stripWrappers(to) {
-  return mapObj(to, (key, value) => {
+  return mapObj(to, (value, key) => {
     if (specialProps[key]) {
       return specialStrip[key](value);
     }
@@ -129,7 +152,7 @@ export const Spring = React.createClass({
   componentWillMount() {
     const {to} = this.props;
     const currValues = stripWrappers(to);
-    const currVelocities = mapObj(currValues, (key, value) => {
+    const currVelocities = mapObj(currValues, (value, key) => {
       if (specialProps[key]) {
         return specialInitVelocity[key](value);
       }
@@ -148,7 +171,7 @@ export const Spring = React.createClass({
     this._rafId = null;
   },
 
-  step({to}) {
+  step(to) {
     const {currValues, currVelocities} = this.curr;
     const node = this.node;
     forEachObj(to, (key, dest) => {
@@ -164,8 +187,8 @@ export const Spring = React.createClass({
       const currVelocity = currVelocities[key];
 
       if (specialProps[key]) {
-        [nextCurrValue, nextCurrVelocity] = methods[key](
-          node, dest, currValue, currVelocity
+        [nextCurrValue, nextCurrVelocity] = specialStep[key](
+          dest, currValue, currVelocity
         );
       } else {
         const _dest = dest._isConfig ? dest : val(dest);
@@ -182,9 +205,8 @@ export const Spring = React.createClass({
             _dest.b,
           );
         }
-
-        methods[key](node, nextCurrValue);
       }
+      methods[key](node, nextCurrValue);
 
       this.curr.currValues[key] = nextCurrValue;
       this.curr.currVelocities[key] = nextCurrVelocity;
@@ -192,12 +214,12 @@ export const Spring = React.createClass({
   },
 
   componentWillUpdate(nextProps) {
-    this.step(nextProps);
+    this.step(nextProps.to);
   },
 
   startRaf() {
     this._rafId = requestAnimationFrame(() => {
-      this.step(this.props);
+      this.step(this.props.to);
       this.startRaf();
     });
   },

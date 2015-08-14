@@ -119,8 +119,6 @@ export function stop(x) {
 export const Spring = React.createClass({
   propTypes: {
     to: PropTypes.object.isRequired,
-    children: PropTypes.any,
-    className: PropTypes.string,
   },
 
   _rafId: null,
@@ -128,16 +126,19 @@ export const Spring = React.createClass({
   curr: null,
   node: null,
 
-  componentDidMount() {
+  componentWillMount() {
     const {to} = this.props;
-    this.curr = {};
-    this.curr.currValues = stripWrappers(to);
-    this.curr.currVelocities = mapObj(this.curr.currValues, (key, value) => {
+    const currValues = stripWrappers(to);
+    const currVelocities = mapObj(currValues, (key, value) => {
       if (specialProps[key]) {
         return specialInitVelocity[key](value);
       }
       return 0;
     });
+    this.curr = {currValues, currVelocities};
+  },
+
+  componentDidMount() {
     this.node = React.findDOMNode(this.refs.comp);
     this.startRaf();
   },

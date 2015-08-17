@@ -1,7 +1,6 @@
 import React from 'react';
-import {Spring} from '../../src/Spring';
+import {Child, Springs, val, stop} from '../../src/Spring';
 import range from 'lodash.range';
-import presets from '../../src/presets';
 
 const Demo = React.createClass({
   getInitialState() {
@@ -22,35 +21,33 @@ const Demo = React.createClass({
   },
 
   getEndValue(prevValue) {
+    const [mouseX, mouseY] = this.state.mouse;
+
+    if (prevValue == null) {
+      return range(6).map(() => ({transform: {translate3d: [0, 0, 0]}}));
+    }
     // `prevValue` is the interpolated value of the last tick
     const endValue = prevValue.map((_, i) => {
       return i === 0
-        ? {val: this.state.mouse, config: []}
-        : {val: prevValue[i - 1].val, config: presets.gentle};
+        ? {transform: {translate3d: [stop(mouseX), stop(mouseY), 0]}}
+        : {transform: {translate3d:
+            prevValue[i - 1].transform.translate3d.map(v => val(v, 120, 14)),
+          }};
     });
     return endValue;
   },
 
   render() {
     return (
-      <Spring
-        defaultValue={range(6).map(() => ({val: [0, 0]}))}
-        endValue={this.getEndValue}>
-        {balls =>
-          <div className="demo1">
-            {balls.map(({val: [x, y]}, i) =>
-              <div
-                key={i}
-                className={`demo1-ball ball-${i}`}
-                style={{
-                  WebkitTransform: `translate3d(${x - 25}px, ${y - 25}px, 0)`,
-                  transform: `translate3d(${x - 25}px, ${y - 25}px, 0)`,
-                  zIndex: balls.length - i,
-                }} />
-            )}
-          </div>
-        }
-      </Spring>
+      <Springs tos={this.getEndValue}>
+        {range(6).map(i =>
+          <Child
+            key={i}
+            className={`demo1-ball ball-${i % 6}`}
+            to={i}
+            style={{zIndex: 6 - i}} />
+        )}
+      </Springs>
     );
   },
 });

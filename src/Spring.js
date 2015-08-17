@@ -224,10 +224,6 @@ export const Spring = React.createClass({
     });
   },
 
-  componentWillUpdate(nextProps) {
-    this.step(nextProps.to);
-  },
-
   startRaf() {
     this._rafId = requestAnimationFrame(() => {
       this.step(this.props.to);
@@ -364,7 +360,7 @@ export const S = React.createClass({
   },
 
   propTypes: {
-    to: PropTypes.oneOfType(PropTypes.number, PropTypes.string).isRequired,
+    to: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   },
 
   _rafId: null,
@@ -382,14 +378,9 @@ export const S = React.createClass({
 
   step(currValue) {
     const node = this.node;
-    forEachObj(currValue, (dest, key) => {
-      methods[key](node, currValue);
+    forEachObj(currValue, (v, key) => {
+      methods[key](node, v);
     });
-    node.innerHTML = JSON.stringify(currValue);
-  },
-
-  componentWillUpdate(_, __, nextContext) {
-    this.step(nextContext.tos.currValues[this.props.to]);
   },
 
   startRaf() {

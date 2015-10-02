@@ -5,12 +5,19 @@ import presets from '../../src/presets';
 
 const Demo = React.createClass({
   getInitialState() {
-    return {x: 250, y: 300};
+    return {count: 2, x: 250, y: 300};
   },
 
   componentDidMount() {
+    window.addEventListener('keyup', this.handleKeyUp);
     window.addEventListener('mousemove', this.handleMouseMove);
     window.addEventListener('touchmove', this.handleTouchMove);
+  },
+
+  handleKeyUp(e) {
+    if (e.keyCode === 13) {
+      this.setState({count: this.state.count + 1});
+    }
   },
 
   handleMouseMove({pageX: x, pageY: y}) {
@@ -31,20 +38,22 @@ const Demo = React.createClass({
             y: spring(prevStyles[i - 1].y, presets.gentle),
           };
     });
-    return endValue;
+
+    // Append new item
+    return endValue.length !== this.state.count ? endValue.concat([{x: 0, y: 0}]) : endValue;
   },
 
   render() {
     return (
       <StaggeredMotion
-        defaultStyles={range(6).map(() => ({x: 0, y: 0}))}
+        defaultStyles={range(this.state.count).map(() => ({x: 0, y: 0}))}
         styles={this.getStyles}>
         {balls =>
           <div className="demo1">
             {balls.map(({x, y}, i) =>
               <div
                 key={i}
-                className={`demo1-ball ball-${i}`}
+                className={`demo1-ball ball-${i % 6}`}
                 style={{
                   WebkitTransform: `translate3d(${x - 25}px, ${y - 25}px, 0)`,
                   transform: `translate3d(${x - 25}px, ${y - 25}px, 0)`,
